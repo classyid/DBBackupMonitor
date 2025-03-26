@@ -1,5 +1,7 @@
 # DBBackupMonitor
 
+![Dashboard](https://blog.classy.id/upload/gambar_berita/b79dba55d5874719fcfb872fd6dd7b65_20250326153941.png)
+
 Sistem monitoring backup database untuk Classy Indonesia yang memvisualisasikan proses, status, dan statistik backup database secara real-time.
 
 ## Fitur
