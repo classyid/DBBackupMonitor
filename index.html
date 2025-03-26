@@ -1,0 +1,2195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backup Monitoring</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom Theme -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'primary': '#10B981', // Emerald 500
+            'primary-dark': '#059669', // Emerald 600
+            'primary-light': '#34D399', // Emerald 400
+            'secondary': '#6B7280', // Gray 500
+            'secondary-dark': '#4B5563', // Gray 600
+            'secondary-light': '#9CA3AF', // Gray 400
+            'background': '#F9FAFB', // Gray 50
+            'surface': '#FFFFFF',
+            'error': '#EF4444', // Red 500
+            'warning': '#F59E0B', // Amber 500
+            'success': '#10B981', // Emerald 500
+            'info': '#3B82F6', // Blue 500
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom styles */
+    .loader {
+      border-top-color: #10B981;
+      -webkit-animation: spinner 1.5s linear infinite;
+      animation: spinner 1.5s linear infinite;
+    }
+    
+    @-webkit-keyframes spinner {
+      0% { -webkit-transform: rotate(0deg); }
+      100% { -webkit-transform: rotate(360deg); }
+    }
+    
+    @keyframes spinner {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #10B981;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #059669;
+    }
+  </style>
+</head>
+<body class="bg-background text-gray-800 flex h-screen overflow-hidden">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="bg-gray-800 text-white w-64 flex-shrink-0 hidden md:block">
+    <div class="p-4 flex items-center border-b border-gray-700">
+      <i class="fas fa-database text-primary mr-3 text-xl"></i>
+      <h1 class="font-bold text-lg truncate">CLASSY INDONESIA</h1>
+    </div>
+    <nav class="mt-4">
+      <ul>
+        <li>
+          <a href="#dashboard" class="nav-link flex items-center py-3 px-4 hover:bg-gray-700 transition-colors" data-view="dashboard">
+            <i class="fas fa-tachometer-alt w-6"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li>
+          <a href="#analytics" class="nav-link flex items-center py-3 px-4 hover:bg-gray-700 transition-colors" data-view="analytics">
+            <i class="fas fa-chart-line w-6"></i>
+            <span>Analytics</span>
+          </a>
+        </li>
+        <li>
+          <a href="#sessions" class="nav-link flex items-center py-3 px-4 hover:bg-gray-700 transition-colors" data-view="sessions">
+            <i class="fas fa-history w-6"></i>
+            <span>Backup Sessions</span>
+          </a>
+        </li>
+        <li>
+          <a href="#users" class="nav-link flex items-center py-3 px-4 hover:bg-gray-700 transition-colors" data-view="users">
+            <i class="fas fa-users w-6"></i>
+            <span>MySQL Users</span>
+          </a>
+        </li>
+        <li>
+          <a href="#logs" class="nav-link flex items-center py-3 px-4 hover:bg-gray-700 transition-colors" data-view="logs">
+            <i class="fas fa-clipboard-list w-6"></i>
+            <span>Logs</span>
+          </a>
+        </li>
+        <li>
+          <a href="#errors" class="nav-link flex items-center py-3 px-4 hover:bg-gray-700 transition-colors" data-view="errors">
+            <i class="fas fa-exclamation-triangle w-6"></i>
+            <span>Errors</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+    <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
+      <div class="text-sm text-gray-400">
+        <p>Connected to: <span class="text-primary-light">classy.id</span></p>
+        <p class="mt-1">Database: <span class="text-primary-light">BACKUP</span></p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile Sidebar Toggle -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden"></div>
+  
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Top Navbar -->
+    <header class="bg-white shadow-sm z-10">
+      <div class="flex items-center justify-between p-4">
+        <div class="flex items-center">
+          <!-- Mobile menu button -->
+          <button id="mobile-menu-button" class="md:hidden text-gray-600 mr-3">
+            <i class="fas fa-bars text-xl"></i>
+          </button>
+          <h2 id="page-title" class="text-xl font-semibold text-gray-800">Dashboard</h2>
+        </div>
+        <div class="flex items-center">
+          <div class="relative">
+            <input type="text" id="global-search" placeholder="Search sessions..." 
+                  class="bg-gray-100 rounded-full px-4 py-2 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <i class="fas fa-search absolute left-3 top-2.5 text-gray-500"></i>
+          </div>
+          <!-- Refresh Button -->
+          <button id="refresh-btn" class="ml-3 bg-primary hover:bg-primary-dark text-white rounded-full p-2 transition-colors">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-4">
+      <!-- Loader -->
+      <div id="loader" class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
+      </div>
+
+      <!-- Dashboard View -->
+      <div id="dashboard-view" class="view-content">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-primary">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-primary bg-opacity-10 text-primary">
+                <i class="fas fa-server text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Total Sessions</h3>
+                <p id="total-sessions" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-info">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-info bg-opacity-10 text-info">
+                <i class="fas fa-database text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Databases Backed Up</h3>
+                <p id="total-databases" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-success">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-success bg-opacity-10 text-success">
+                <i class="fas fa-check-circle text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Successful Backups</h3>
+                <p id="total-successful" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-error">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-error bg-opacity-10 text-error">
+                <i class="fas fa-exclamation-circle text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Failed Backups</h3>
+                <p id="total-failed" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Success Rate Chart -->
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Backup Success Rate</h3>
+            <div class="h-64">
+              <canvas id="success-rate-chart"></canvas>
+            </div>
+          </div>
+          <!-- User Stats Chart -->
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Top MySQL Users</h3>
+            <div class="h-64">
+              <canvas id="user-stats-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Sessions Table -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-medium text-gray-700">Recent Backup Sessions</h3>
+            <a href="#sessions" class="text-primary hover:text-primary-dark text-sm" data-view="sessions">
+              View All <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Databases</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recent-sessions-table" class="bg-white divide-y divide-gray-200">
+                <!-- Table rows will be inserted here -->
+                <tr>
+                  <td colspan="7" class="px-4 py-3 text-center text-sm text-gray-500">Loading recent sessions...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Error Summary -->
+        <div class="bg-white rounded-lg shadow-sm p-4">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-medium text-gray-700">Common Error Types</h3>
+            <a href="#errors" class="text-primary hover:text-primary-dark text-sm" data-view="errors">
+              View All <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+          </div>
+          <div id="error-stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Error stats will be inserted here -->
+            <div class="p-4 border border-gray-200 rounded-lg">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                  <i class="fas fa-exclamation-triangle text-error mr-2"></i>
+                  <span class="font-medium">Loading errors...</span>
+                </div>
+                <span class="text-sm text-gray-500">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics View -->
+      <div id="analytics-view" class="view-content hidden">
+        <!-- Time Period Filter -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap items-center gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
+              <select id="time-period-filter" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="365">Last 12 months</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Group By</label>
+              <select id="group-by-filter" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month" selected>Month</option>
+              </select>
+            </div>
+            <div class="ml-auto">
+              <button id="apply-filter-btn" class="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-md transition-colors flex items-center">
+                <i class="fas fa-filter mr-2"></i> Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Analytics Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Monthly Stats Chart -->
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Backup Success Rate by Month</h3>
+            <div class="h-64">
+              <canvas id="monthly-success-chart"></canvas>
+            </div>
+          </div>
+          <!-- Backup Duration Chart -->
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Average Backup Duration</h3>
+            <div class="h-64">
+              <canvas id="duration-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top User Performance and Error Distribution -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Top Users Table -->
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Top MySQL Users Performance</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Backups</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
+                  </tr>
+                </thead>
+                <tbody id="top-users-table" class="bg-white divide-y divide-gray-200">
+                  <!-- Table rows will be inserted here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Error Distribution Chart -->
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Error Type Distribution</h3>
+            <div class="h-64">
+              <canvas id="error-distribution-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-primary">
+            <h3 class="text-sm font-medium text-gray-500 mb-1">Avg. Success Rate</h3>
+            <p id="avg-success-rate" class="text-2xl font-semibold">-</p>
+            <p id="success-rate-trend" class="text-sm mt-2">
+              <span class="text-success"><i class="fas fa-arrow-up"></i> 0%</span> vs previous period
+            </p>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-info">
+            <h3 class="text-sm font-medium text-gray-500 mb-1">Avg. Backup Duration</h3>
+            <p id="avg-duration" class="text-2xl font-semibold">-</p>
+            <p id="duration-trend" class="text-sm mt-2">
+              <span class="text-success"><i class="fas fa-arrow-down"></i> 0%</span> vs previous period
+            </p>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-warning">
+            <h3 class="text-sm font-medium text-gray-500 mb-1">Most Frequent Error</h3>
+            <p id="most-frequent-error" class="text-lg font-medium truncate">-</p>
+            <p id="error-count" class="text-sm mt-2">Occurred <span>0</span> times</p>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-success">
+            <h3 class="text-sm font-medium text-gray-500 mb-1">Best Performing User</h3>
+            <p id="best-user" class="text-lg font-medium">-</p>
+            <p id="best-user-rate" class="text-sm mt-2">Success rate: <span class="text-success">0%</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sessions View -->
+      <div id="sessions-view" class="view-content hidden">
+        <!-- Filter and Search -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="start-date-filter" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="end-date-filter" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select id="status-filter" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="">All</option>
+                <option value="running">Running</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            <div class="ml-auto">
+              <button id="search-sessions-btn" class="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-md transition-colors flex items-center">
+                <i class="fas fa-search mr-2"></i> Search
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sessions Table -->
+        <div class="bg-white rounded-lg shadow-sm p-4">
+          <h3 class="font-medium text-gray-700 mb-4">Backup Sessions</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Databases</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sessions-table" class="bg-white divide-y divide-gray-200">
+                <!-- Table rows will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex justify-between items-center">
+            <div class="text-sm text-gray-500">
+              Showing <span id="showing-count">0</span> of <span id="total-count">0</span> sessions
+            </div>
+            <div class="flex space-x-2">
+              <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <button id="next-page" class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Detail View -->
+      <div id="session-detail-view" class="view-content hidden">
+        <!-- Back button -->
+        <button id="back-to-sessions" class="mb-4 flex items-center text-primary hover:text-primary-dark">
+          <i class="fas fa-arrow-left mr-2"></i> Back to Sessions
+        </button>
+
+        <!-- Session Info Card -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap justify-between items-start">
+            <div>
+              <h3 class="text-xl font-semibold" id="session-id-title">Session #-</h3>
+              <p class="text-gray-500" id="session-date">-</p>
+            </div>
+            <div class="flex mt-2 sm:mt-0">
+              <span id="session-status-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                -
+              </span>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            <div class="border-l-4 border-primary pl-3">
+              <p class="text-sm text-gray-500">Total Users</p>
+              <p class="font-semibold text-lg" id="session-total-users">-</p>
+            </div>
+            <div class="border-l-4 border-info pl-3">
+              <p class="text-sm text-gray-500">Total Databases</p>
+              <p class="font-semibold text-lg" id="session-total-databases">-</p>
+            </div>
+            <div class="border-l-4 border-success pl-3">
+              <p class="text-sm text-gray-500">Successful Backups</p>
+              <p class="font-semibold text-lg" id="session-successful">-</p>
+            </div>
+            <div class="border-l-4 border-error pl-3">
+              <p class="text-sm text-gray-500">Failed Backups</p>
+              <p class="font-semibold text-lg" id="session-failed">-</p>
+            </div>
+          </div>
+          
+          <div class="mt-6 pt-4 border-t border-gray-200">
+            <h4 class="font-medium text-gray-700 mb-2">Backup Folder</h4>
+            <p id="session-folder" class="bg-gray-50 p-2 rounded text-gray-600 break-all">-</p>
+          </div>
+        </div>
+
+        <!-- Tabs for details -->
+        <div class="bg-white rounded-lg shadow-sm mb-6">
+          <div class="border-b border-gray-200">
+            <nav class="flex -mb-px">
+              <button class="session-tab-btn text-primary border-primary px-4 py-3 border-b-2 font-medium text-sm" data-tab="user-backups">
+                User Backups
+              </button>
+              <button class="session-tab-btn text-gray-500 hover:text-gray-700 px-4 py-3 border-b-2 border-transparent font-medium text-sm" data-tab="telegram-notifications">
+                Notifications
+              </button>
+              <button class="session-tab-btn text-gray-500 hover:text-gray-700 px-4 py-3 border-b-2 border-transparent font-medium text-sm" data-tab="session-logs">
+                Logs
+              </button>
+            </nav>
+          </div>
+          
+          <!-- User Backups Tab Content -->
+          <div id="user-backups-tab" class="session-tab-content p-4">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total DBs</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Failed</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="user-backups-table" class="bg-white divide-y divide-gray-200">
+                  <!-- Table rows will be inserted here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Telegram Notifications Tab Content -->
+          <div id="telegram-notifications-tab" class="session-tab-content p-4 hidden">
+            <div id="notifications-container" class="space-y-4">
+              <!-- Notifications will be inserted here -->
+            </div>
+          </div>
+          
+          <!-- Session Logs Tab Content -->
+          <div id="session-logs-tab" class="session-tab-content p-4 hidden">
+            <div class="mb-4 flex items-center">
+              <select id="log-level-filter" class="rounded-md border border-gray-300 text-gray-700 py-1 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary mr-2">
+                <option value="all">All Levels</option>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+              </select>
+              <input type="text" id="log-search" placeholder="Search logs..." 
+                     class="rounded-md border border-gray-300 text-gray-700 py-1 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div class="bg-gray-50 rounded-md p-3 h-96 overflow-y-auto">
+              <div id="session-logs-container" class="font-mono text-sm">
+                <!-- Logs will be inserted here -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Backup Detail View -->
+      <div id="user-backup-detail-view" class="view-content hidden">
+        <!-- Back button -->
+        <button id="back-to-session" class="mb-4 flex items-center text-primary hover:text-primary-dark">
+          <i class="fas fa-arrow-left mr-2"></i> Back to Session
+        </button>
+
+        <!-- User Backup Info Card -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap justify-between items-start">
+            <div>
+              <h3 class="text-xl font-semibold" id="user-backup-title">User Backup: -</h3>
+              <p class="text-gray-500" id="user-backup-date">-</p>
+            </div>
+            <div class="flex mt-2 sm:mt-0">
+              <span id="user-backup-status-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                -
+              </span>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            <div class="border-l-4 border-info pl-3">
+              <p class="text-sm text-gray-500">Total Databases</p>
+              <p class="font-semibold text-lg" id="user-backup-total-databases">-</p>
+            </div>
+            <div class="border-l-4 border-success pl-3">
+              <p class="text-sm text-gray-500">Successful Backups</p>
+              <p class="font-semibold text-lg" id="user-backup-successful">-</p>
+            </div>
+            <div class="border-l-4 border-error pl-3">
+              <p class="text-sm text-gray-500">Failed Backups</p>
+              <p class="font-semibold text-lg" id="user-backup-failed">-</p>
+            </div>
+            <div class="border-l-4 border-primary pl-3">
+              <p class="text-sm text-gray-500">Success Rate</p>
+              <p class="font-semibold text-lg" id="user-backup-success-rate">-</p>
+            </div>
+          </div>
+          
+          <div class="mt-6 pt-4 border-t border-gray-200">
+            <h4 class="font-medium text-gray-700 mb-2">Backup Folder</h4>
+            <p id="user-backup-folder" class="bg-gray-50 p-2 rounded text-gray-600 break-all">-</p>
+          </div>
+        </div>
+
+        <!-- Database Backups Table -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <h3 class="font-medium text-gray-700 mb-4">Database Backups</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Database</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Size</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error</th>
+                </tr>
+              </thead>
+              <tbody id="database-backups-table" class="bg-white divide-y divide-gray-200">
+                <!-- Table rows will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- User Backup Logs -->
+        <div class="bg-white rounded-lg shadow-sm p-4">
+          <h3 class="font-medium text-gray-700 mb-4">Logs</h3>
+          <div class="bg-gray-50 rounded-md p-3 h-64 overflow-y-auto">
+            <div id="user-backup-logs-container" class="font-mono text-sm">
+              <!-- Logs will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users View -->
+      <div id="users-view" class="view-content hidden">
+        <!-- Filter and Search -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
+              <select id="users-time-period" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="365">Last 12 months</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+              <select id="users-sort-by" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="backup_count" selected>Backup Count</option>
+                <option value="success_rate">Success Rate</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
+            <div class="flex-grow">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Search Users</label>
+              <input type="text" id="users-search" placeholder="Search by username..." 
+                     class="w-full rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+              <button id="refresh-users-btn" class="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-md transition-colors flex items-center">
+                <i class="fas fa-sync-alt mr-2"></i> Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Cards Grid -->
+        <div id="users-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <!-- User cards will be inserted here -->
+        </div>
+      </div>
+
+      <!-- Logs View -->
+      <div id="logs-view" class="view-content hidden">
+        <!-- Filter and Search -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Session ID</label>
+              <input type="number" id="logs-session-id" placeholder="Filter by Session ID" 
+                     class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+              <select id="logs-level-filter" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="">All Levels</option>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+              <div class="flex items-center space-x-2">
+                <input type="date" id="logs-start-date" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <span>to</span>
+                <input type="date" id="logs-end-date" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+              </div>
+            </div>
+            <div class="ml-auto">
+              <button id="search-logs-btn" class="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-md transition-colors flex items-center">
+                <i class="fas fa-search mr-2"></i> Search
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="bg-white rounded-lg shadow-sm p-4">
+          <h3 class="font-medium text-gray-700 mb-4">System Logs</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                </tr>
+              </thead>
+              <tbody id="logs-table" class="bg-white divide-y divide-gray-200">
+                <!-- Table rows will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex justify-between items-center">
+            <div class="text-sm text-gray-500">
+              Showing <span id="logs-showing-count">0</span> of <span id="logs-total-count">0</span> logs
+            </div>
+            <div class="flex space-x-2">
+              <button id="logs-prev-page" class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <button id="logs-next-page" class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Errors View -->
+      <div id="errors-view" class="view-content hidden">
+        <!-- Filter and Search -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div class="flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
+              <select id="errors-time-period" class="rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+            <div class="flex-grow">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <input type="text" id="errors-search" placeholder="Search error messages..." 
+                     class="w-full rounded-md border border-gray-300 text-gray-700 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+              <button id="search-errors-btn" class="bg-primary hover:bg-primary-dark text-white py-2 px-4 rounded-md transition-colors flex items-center">
+                <i class="fas fa-search mr-2"></i> Search
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-error">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-error bg-opacity-10 text-error">
+                <i class="fas fa-exclamation-circle text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Total Errors</h3>
+                <p id="total-errors" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-warning">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-warning bg-opacity-10 text-warning">
+                <i class="fas fa-database text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Failed Databases</h3>
+                <p id="failed-databases" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-info">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-info bg-opacity-10 text-info">
+                <i class="fas fa-calendar-alt text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Most Error Day</h3>
+                <p id="most-error-day" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-secondary">
+            <div class="flex items-center">
+              <div class="p-3 rounded-full bg-secondary bg-opacity-10 text-secondary">
+                <i class="fas fa-user text-xl"></i>
+              </div>
+              <div class="ml-4">
+                <h3 class="text-sm font-medium text-gray-500">Most Error User</h3>
+                <p id="most-error-user" class="text-xl font-semibold">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Distribution Chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Error Types Distribution</h3>
+            <div class="h-64">
+              <canvas id="error-types-chart"></canvas>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-4">
+            <h3 class="font-medium text-gray-700 mb-4">Errors Over Time</h3>
+            <div class="h-64">
+              <canvas id="errors-time-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Errors Table -->
+        <div class="bg-white rounded-lg shadow-sm p-4">
+          <h3 class="font-medium text-gray-700 mb-4">Recent Errors</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Database</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Message</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="errors-table" class="bg-white divide-y divide-gray-200">
+                <!-- Table rows will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex justify-between items-center">
+            <div class="text-sm text-gray-500">
+              Showing <span id="errors-showing-count">0</span> of <span id="errors-total-count">0</span> errors
+            </div>
+            <div class="flex space-x-2">
+              <button id="errors-prev-page" class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <button id="errors-next-page" class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+
+<!-- JavaScript untuk fungsionalitas web app -->
+<script>
+  // State global aplikasi
+  const state = {
+    currentView: 'dashboard',
+    sessionId: null,
+    userBackupId: null,
+    pagination: {
+      sessions: { page: 1, limit: 10 },
+      logs: { page: 1, limit: 50 },
+      errors: { page: 1, limit: 20 }
+    }
+  };
+
+  // Elemen DOM
+  const elements = {
+    loader: document.getElementById('loader'),
+    sidebar: document.getElementById('sidebar'),
+    sidebarOverlay: document.getElementById('sidebar-overlay'),
+    mobileMenuButton: document.getElementById('mobile-menu-button'),
+    pageTitle: document.getElementById('page-title'),
+    refreshBtn: document.getElementById('refresh-btn'),
+    navLinks: document.querySelectorAll('.nav-link'),
+    views: document.querySelectorAll('.view-content'),
+    
+    // Session tabs
+    sessionTabBtns: document.querySelectorAll('.session-tab-btn'),
+    sessionTabContents: document.querySelectorAll('.session-tab-content'),
+    
+    // Back buttons
+    backToSessions: document.getElementById('back-to-sessions'),
+    backToSession: document.getElementById('back-to-session')
+  };
+
+  // Event Listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    setupEventListeners();
+  });
+
+  // Inisialisasi aplikasi
+  function initApp() {
+    // Cek URL hash untuk navigasi
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      navigateTo(hash);
+    } else {
+      loadDashboard();
+    }
+    
+    // Sembunyikan loader setelah inisialisasi
+    setTimeout(() => {
+      elements.loader.classList.add('hidden');
+    }, 1000);
+  }
+
+  // Setup event listeners
+  function setupEventListeners() {
+    // Mobile menu toggle
+    elements.mobileMenuButton.addEventListener('click', toggleSidebar);
+    elements.sidebarOverlay.addEventListener('click', toggleSidebar);
+    
+    // Navigasi sidebar
+    elements.navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const view = link.dataset.view;
+        navigateTo(view);
+      });
+    });
+    
+    // Refresh button
+    elements.refreshBtn.addEventListener('click', () => {
+      refreshCurrentView();
+    });
+    
+    // Session tabs
+    elements.sessionTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        switchSessionTab(tab);
+      });
+    });
+    
+    // Back buttons
+    elements.backToSessions.addEventListener('click', () => {
+      navigateTo('sessions');
+    });
+    
+    elements.backToSession.addEventListener('click', () => {
+      navigateTo('session-detail', { id: state.sessionId });
+    });
+  }
+
+  // Toggle sidebar untuk mobile
+  function toggleSidebar() {
+    elements.sidebar.classList.toggle('hidden');
+    elements.sidebarOverlay.classList.toggle('hidden');
+  }
+
+  // Navigasi ke view tertentu
+  function navigateTo(view, params = {}) {
+    // Update state
+    state.currentView = view;
+    
+    // Simpan parameter jika ada
+    if (params.id) {
+      if (view === 'session-detail') {
+        state.sessionId = params.id;
+      } else if (view === 'user-backup-detail') {
+        state.userBackupId = params.id;
+      }
+    }
+    
+    // Update URL hash
+    window.location.hash = view;
+    
+    // Sembunyikan semua views
+    elements.views.forEach(viewEl => {
+      viewEl.classList.add('hidden');
+    });
+    
+    // Tampilkan view yang dipilih
+    const viewElement = document.getElementById(`${view}-view`);
+    if (viewElement) {
+      viewElement.classList.remove('hidden');
+    }
+    
+    // Update title
+    updatePageTitle(view);
+    
+    // Load data untuk view
+    loadViewData(view, params);
+    
+    // Untuk mobile, tutup sidebar setelah navigasi
+    if (window.innerWidth < 768) {
+      elements.sidebar.classList.add('hidden');
+      elements.sidebarOverlay.classList.add('hidden');
+    }
+  }
+
+  // Update judul halaman
+  function updatePageTitle(view) {
+    let title = 'Dashboard';
+    
+    switch(view) {
+      case 'dashboard':
+        title = 'Dashboard';
+        break;
+      case 'analytics':
+        title = 'Analytics';
+        break;
+      case 'sessions':
+        title = 'Backup Sessions';
+        break;
+      case 'session-detail':
+        title = `Session #${state.sessionId}`;
+        break;
+      case 'user-backup-detail':
+        title = 'User Backup Details';
+        break;
+      case 'users':
+        title = 'MySQL Users';
+        break;
+      case 'logs':
+        title = 'System Logs';
+        break;
+      case 'errors':
+        title = 'Error Analysis';
+        break;
+    }
+    
+    elements.pageTitle.textContent = title;
+  }
+
+  // Load data untuk view yang aktif
+  function loadViewData(view, params = {}) {
+    showLoader();
+    
+    switch(view) {
+      case 'dashboard':
+        loadDashboard();
+        break;
+      case 'analytics':
+        loadAnalytics();
+        break;
+      case 'sessions':
+        loadSessions();
+        break;
+      case 'session-detail':
+        loadSessionDetail(params.id);
+        break;
+      case 'user-backup-detail':
+        loadUserBackupDetail(params.id);
+        break;
+      case 'users':
+        loadUsers();
+        break;
+      case 'logs':
+        loadLogs();
+        break;
+      case 'errors':
+        loadErrors();
+        break;
+    }
+  }
+
+  // Refresh view yang sedang aktif
+  function refreshCurrentView() {
+    loadViewData(state.currentView, {
+      id: state.currentView === 'session-detail' ? state.sessionId : 
+          state.currentView === 'user-backup-detail' ? state.userBackupId : null
+    });
+  }
+
+  // Switch tab di detail session
+  function switchSessionTab(tabId) {
+    // Update button classes
+    elements.sessionTabBtns.forEach(btn => {
+      if (btn.dataset.tab === tabId) {
+        btn.classList.remove('text-gray-500', 'hover:text-gray-700', 'border-transparent');
+        btn.classList.add('text-primary', 'border-primary');
+      } else {
+        btn.classList.remove('text-primary', 'border-primary');
+        btn.classList.add('text-gray-500', 'hover:text-gray-700', 'border-transparent');
+      }
+    });
+    
+    // Update tab content visibility
+    elements.sessionTabContents.forEach(content => {
+      if (content.id === `${tabId}-tab`) {
+        content.classList.remove('hidden');
+      } else {
+        content.classList.add('hidden');
+      }
+    });
+  }
+
+  // Tampilkan loader
+  function showLoader() {
+    elements.loader.classList.remove('hidden');
+  }
+
+  // Sembunyikan loader
+  function hideLoader() {
+    elements.loader.classList.add('hidden');
+  }
+
+  // Format tanggal
+  function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString();
+  }
+
+  // Format durasi
+  function formatDuration(seconds) {
+    if (!seconds) return '-';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  }
+
+  // Format persentase
+  function formatPercentage(value) {
+    if (value === null || value === undefined) return '-';
+    return parseFloat(value).toFixed(2) + '%';
+  }
+
+  // Mendapatkan warna status
+  function getStatusColor(status) {
+    switch(status) {
+      case 'completed':
+        return 'bg-success text-white';
+      case 'running':
+        return 'bg-info text-white';
+      case 'failed':
+        return 'bg-error text-white';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  // Mendapatkan warna log level
+  function getLogLevelColor(level) {
+    switch(level) {
+      case 'error':
+        return 'text-error';
+      case 'warning':
+        return 'text-warning';
+      case 'info':
+        return 'text-info';
+      default:
+        return 'text-gray-800';
+    }
+  }
+
+  // Truncate text dengan elipsis
+  function truncateText(text, maxLength = 100) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  }
+
+
+  // API calls
+async function fetchData(action, params = {}) {
+  showLoader();
+  
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(function(data) {
+        hideLoader();
+        resolve(data);
+      })
+      .withFailureHandler(function(error) {
+        hideLoader();
+        console.error(`Error fetching ${action} data:`, error);
+        alert(`Failed to load data: ${error.message || error}`);
+        reject(error);
+      })
+      .processRequest(action, params);
+  });
+}
+
+  // Dashboard functions
+  async function loadDashboard() {
+    const data = await fetchData('dashboard');
+    if (!data) return;
+    
+    // Update summary cards
+    document.getElementById('total-sessions').textContent = data.summary.total_sessions || 0;
+    document.getElementById('total-databases').textContent = data.summary.total_databases || 0;
+    document.getElementById('total-successful').textContent = data.summary.total_successful || 0;
+    document.getElementById('total-failed').textContent = data.summary.total_failed || 0;
+    
+    // Render success rate chart
+    renderSuccessRateChart(data.successRateData);
+    
+    // Render user stats chart
+    renderUserStatsChart(data.userStats);
+    
+    // Render recent sessions table
+    renderRecentSessionsTable(data.recentSessions);
+    
+    // Render error stats
+    renderErrorStats(data.errorStats);
+  }
+
+  // Render success rate chart
+  function renderSuccessRateChart(data) {
+    const ctx = document.getElementById('success-rate-chart').getContext('2d');
+    
+    // Destroy existing chart if there is one
+    if (window.successRateChart) {
+      window.successRateChart.destroy();
+    }
+    
+    // Prepare data
+    const labels = [];
+    const successData = [];
+    const failedData = [];
+    
+    data.forEach(item => {
+      labels.push(item.date);
+      successData.push(item.successful);
+      failedData.push(item.failed);
+    });
+    
+    // Create new chart
+    window.successRateChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Successful',
+            data: successData,
+            backgroundColor: '#10B981', // primary
+            borderRadius: 4
+          },
+          {
+            label: 'Failed',
+            data: failedData,
+            backgroundColor: '#EF4444', // error
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // Render user stats chart
+  function renderUserStatsChart(data) {
+    const ctx = document.getElementById('user-stats-chart').getContext('2d');
+    
+    // Destroy existing chart if there is one
+    if (window.userStatsChart) {
+      window.userStatsChart.destroy();
+    }
+    
+    // Prepare data
+    const labels = [];
+    const successData = [];
+    const failedData = [];
+    
+    data.forEach(item => {
+      labels.push(item.mysql_user);
+      successData.push(item.successful);
+      failedData.push(item.failed);
+    });
+    
+    // Create new chart
+    window.userStatsChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Successful',
+            data: successData,
+            backgroundColor: '#10B981', // primary
+            borderRadius: 4
+          },
+          {
+            label: 'Failed',
+            data: failedData,
+            backgroundColor: '#EF4444', // error
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              callback: function(value) {
+                const label = this.getLabelForValue(value);
+                return label.length > 10 ? label.substr(0, 10) + '...' : label;
+              }
+            }
+          },
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // Render recent sessions table
+  function renderRecentSessionsTable(sessions) {
+    const tableBody = document.getElementById('recent-sessions-table');
+    
+    if (!sessions || sessions.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-4 py-3 text-center text-sm text-gray-500">No session data available</td>
+        </tr>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    sessions.forEach(session => {
+      const successRate = session.total_databases > 0 
+        ? ((session.successful_backups / session.total_databases) * 100).toFixed(2)
+        : 0;
+      
+      html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${session.session_id}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${formatDate(session.start_time)}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${session.end_time ? formatDate(session.end_time) : '-'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}">
+              ${session.status}
+            </span>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${session.total_databases}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <div class="flex items-center">
+              <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                <div class="bg-primary h-2 rounded-full" style="width: ${successRate}%"></div>
+              </div>
+              <span>${successRate}%</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <button class="text-primary hover:text-primary-dark mr-2" onclick="navigateTo('session-detail', {id: ${session.session_id}})">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+    
+    tableBody.innerHTML = html;
+  }
+
+  // Render error stats
+  function renderErrorStats(errors) {
+    const container = document.getElementById('error-stats-container');
+    
+    if (!errors || errors.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 border border-gray-200 rounded-lg col-span-full">
+          <div class="flex items-center justify-center text-gray-500">
+            <i class="fas fa-check-circle mr-2 text-success"></i>
+            <span>No errors found in the recent backups</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    errors.forEach(error => {
+      const errorMessage = error.error_message || 'Unknown error';
+      const truncatedError = truncateText(errorMessage, 50);
+      
+      html += `
+        <div class="p-4 border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <i class="fas fa-exclamation-triangle text-error mr-2"></i>
+              <span class="font-medium">${truncatedError}</span>
+            </div>
+            <span class="text-sm text-gray-500">${error.count}x</span>
+          </div>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  }
+
+  // Load session detail
+  async function loadSessionDetail(sessionId) {
+    if (!sessionId) return;
+    
+    const data = await fetchData('session', {id: sessionId});
+    if (!data) return;
+    
+    // Update session info
+    const sessionInfo = data.sessionInfo;
+    document.getElementById('session-id-title').textContent = `Session #${sessionInfo.session_id}`;
+    document.getElementById('session-date').textContent = `${formatDate(sessionInfo.start_time)}${sessionInfo.end_time ? ' to ' + formatDate(sessionInfo.end_time) : ''}`;
+    document.getElementById('session-total-users').textContent = sessionInfo.total_users || 0;
+    document.getElementById('session-total-databases').textContent = sessionInfo.total_databases || 0;
+    document.getElementById('session-successful').textContent = sessionInfo.successful_backups || 0;
+    document.getElementById('session-failed').textContent = sessionInfo.failed_backups || 0;
+    document.getElementById('session-folder').textContent = sessionInfo.base_folder || '-';
+    
+    // Update status badge
+    const statusBadge = document.getElementById('session-status-badge');
+    statusBadge.textContent = sessionInfo.status;
+    statusBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(sessionInfo.status)}`;
+    
+    // Render user backups table
+    renderUserBackupsTable(data.userBackups);
+    
+    // Render telegram notifications
+    renderNotifications(data.notifications);
+    
+    // Render logs
+    renderSessionLogs(data.logs);
+  }
+
+  // Render user backups table
+  function renderUserBackupsTable(userBackups) {
+    const tableBody = document.getElementById('user-backups-table');
+    
+    if (!userBackups || userBackups.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-4 py-3 text-center text-sm text-gray-500">No user backup data available</td>
+        </tr>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    userBackups.forEach(userBackup => {
+      html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${userBackup.mysql_user}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${formatDate(userBackup.start_time)}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${userBackup.end_time ? formatDate(userBackup.end_time) : '-'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${userBackup.total_databases}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${userBackup.successful_backups}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${userBackup.failed_backups}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <button class="text-primary hover:text-primary-dark mr-2" onclick="navigateTo('user-backup-detail', {id: ${userBackup.user_backup_id}})">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+    
+    tableBody.innerHTML = html;
+  }
+
+  // Render telegram notifications
+  function renderNotifications(notifications) {
+    const container = document.getElementById('notifications-container');
+    
+    if (!notifications || notifications.length === 0) {
+      container.innerHTML = `
+        <div class="p-4 border border-gray-200 rounded-lg">
+          <div class="flex items-center justify-center text-gray-500">
+            <i class="fas fa-bell-slash mr-2"></i>
+            <span>No notifications sent for this session</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    notifications.forEach(notification => {
+      let iconClass = 'fa-bell';
+      let colorClass = 'text-info';
+      
+      switch(notification.notification_type) {
+        case 'session_start':
+          iconClass = 'fa-play-circle';
+          colorClass = 'text-primary';
+          break;
+        case 'session_end':
+          iconClass = 'fa-check-circle';
+          colorClass = 'text-success';
+          break;
+        case 'error':
+          iconClass = 'fa-exclamation-circle';
+          colorClass = 'text-error';
+          break;
+        case 'user_start':
+          iconClass = 'fa-user';
+          colorClass = 'text-info';
+          break;
+        case 'user_end':
+          iconClass = 'fa-user-check';
+          colorClass = 'text-success';
+          break;
+        case 'database_status':
+          iconClass = 'fa-database';
+          colorClass = 'text-primary';
+          break;
+      }
+      
+      html += `
+        <div class="p-4 border border-gray-200 rounded-lg">
+          <div class="flex">
+            <div class="mr-4">
+              <div class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center ${colorClass}">
+                <i class="fas ${iconClass}"></i>
+              </div>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <h4 class="font-medium">${notification.notification_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                <span class="text-xs text-gray-500">${formatDate(notification.send_time)}</span>
+              </div>
+              <p class="mt-1 text-sm text-gray-600">${notification.message}</p>
+              <div class="mt-2 flex items-center">
+                <span class="text-xs ${notification.status === 'sent' ? 'text-success' : 'text-error'}">
+                  <i class="fas ${notification.status === 'sent' ? 'fa-check' : 'fa-times'} mr-1"></i>
+                  ${notification.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  }
+
+  // Render session logs
+  function renderSessionLogs(logs) {
+    const container = document.getElementById('session-logs-container');
+    
+    if (!logs || logs.length === 0) {
+      container.innerHTML = `<div class="text-gray-500 text-center py-4">No logs found for this session</div>`;
+      return;
+    }
+    
+    let html = '';
+    
+    logs.forEach(log => {
+      const levelClass = getLogLevelColor(log.log_level);
+      
+      html += `
+        <div class="mb-2">
+          <span class="text-gray-400">[${formatDate(log.log_time)}]</span>
+          <span class="${levelClass} font-medium mr-1">[${log.log_level.toUpperCase()}]</span>
+          <span>${log.message}</span>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  }
+
+  // Load user backup detail
+  async function loadUserBackupDetail(userBackupId) {
+    if (!userBackupId) return;
+    
+    const data = await fetchData('userBackup', {id: userBackupId});
+    if (!data) return;
+    
+    // Update user backup info
+    const userBackupInfo = data.userBackupInfo;
+    document.getElementById('user-backup-title').textContent = `User Backup: ${userBackupInfo.mysql_user}`;
+    document.getElementById('user-backup-date').textContent = `${formatDate(userBackupInfo.start_time)}${userBackupInfo.end_time ? ' to ' + formatDate(userBackupInfo.end_time) : ''}`;
+    document.getElementById('user-backup-total-databases').textContent = userBackupInfo.total_databases || 0;
+    document.getElementById('user-backup-successful').textContent = userBackupInfo.successful_backups || 0;
+    document.getElementById('user-backup-failed').textContent = userBackupInfo.failed_backups || 0;
+    
+    // Calculate success rate
+    const totalDatabases = parseInt(userBackupInfo.total_databases) || 0;
+    const successfulBackups = parseInt(userBackupInfo.successful_backups) || 0;
+    const successRate = totalDatabases > 0 ? ((successfulBackups / totalDatabases) * 100).toFixed(2) + '%' : '0%';
+    document.getElementById('user-backup-success-rate').textContent = successRate;
+    
+    document.getElementById('user-backup-folder').textContent = userBackupInfo.user_folder || '-';
+    
+    // Update status badge based on session status
+    const statusBadge = document.getElementById('user-backup-status-badge');
+    statusBadge.textContent = userBackupInfo.session_status;
+    statusBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userBackupInfo.session_status)}`;
+    
+    // Store session id for navigation
+    state.sessionId = userBackupInfo.session_id;
+    
+    // Render database backups
+    renderDatabaseBackups(data.dbBackups);
+    
+    // Render user backup logs
+    renderUserBackupLogs(data.logs);
+  }
+
+  // Render database backups
+  function renderDatabaseBackups(dbBackups) {
+    const tableBody = document.getElementById('database-backups-table');
+    
+    if (!dbBackups || dbBackups.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="px-4 py-3 text-center text-sm text-gray-500">No database backup data available</td>
+        </tr>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    dbBackups.forEach(backup => {
+      const statusClass = backup.status === 'successful' ? 'text-success' : 'text-error';
+      const statusIcon = backup.status === 'successful' ? 'fa-check-circle' : 'fa-exclamation-circle';
+      
+      html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${backup.database_name}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${formatDate(backup.start_time)}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${backup.end_time ? formatDate(backup.end_time) : '-'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <span class="${statusClass}">
+              <i class="fas ${statusIcon} mr-1"></i>
+              ${backup.status}
+            </span>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${backup.file_size || '-'}</td>
+          <td class="px-4 py-3 text-sm text-gray-500">
+            ${backup.error_message ? truncateText(backup.error_message, 50) : '-'}
+          </td>
+        </tr>
+      `;
+    });
+    
+    tableBody.innerHTML = html;
+  }
+
+  // Render user backup logs
+  function renderUserBackupLogs(logs) {
+    const container = document.getElementById('user-backup-logs-container');
+    
+    if (!logs || logs.length === 0) {
+      container.innerHTML = `<div class="text-gray-500 text-center py-4">No logs found for this user backup</div>`;
+      return;
+    }
+    
+    let html = '';
+    
+    logs.forEach(log => {
+      const levelClass = getLogLevelColor(log.log_level);
+      
+      html += `
+        <div class="mb-2">
+          <span class="text-gray-400">[${formatDate(log.log_time)}]</span>
+          <span class="${levelClass} font-medium mr-1">[${log.log_level.toUpperCase()}]</span>
+          <span>${log.message}</span>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  }
+
+  // Load sessions
+  async function loadSessions() {
+    // Get filter values
+    const startDate = document.getElementById('start-date-filter').value;
+    const endDate = document.getElementById('end-date-filter').value;
+    const status = document.getElementById('status-filter').value;
+    
+    const data = await fetchData('search', {
+      startDate: startDate,
+      endDate: endDate,
+      status: status,
+      page: state.pagination.sessions.page,
+      limit: state.pagination.sessions.limit
+    });
+    
+    if (!data) return;
+    
+    renderSessionsTable(data);
+    
+    // Update pagination info
+    document.getElementById('showing-count').textContent = data.length;
+    document.getElementById('total-count').textContent = data.length;
+    
+    // Disable/enable pagination buttons
+    document.getElementById('prev-page').disabled = state.pagination.sessions.page === 1;
+    document.getElementById('next-page').disabled = data.length < state.pagination.sessions.limit;
+  }
+
+  // Render sessions table
+  function renderSessionsTable(sessions) {
+    const tableBody = document.getElementById('sessions-table');
+    
+    if (!sessions || sessions.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="8" class="px-4 py-3 text-center text-sm text-gray-500">No session data available</td>
+        </tr>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    sessions.forEach(session => {
+      const successRate = session.total_databases > 0 
+        ? ((session.successful_backups / session.total_databases) * 100).toFixed(2)
+        : 0;
+      
+      html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${session.session_id}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${formatDate(session.start_time)}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${session.end_time ? formatDate(session.end_time) : '-'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}">
+              ${session.status}
+            </span>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${session.total_users}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${session.total_databases}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <div class="flex items-center">
+              <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                <div class="bg-primary h-2 rounded-full" style="width: ${successRate}%"></div>
+              </div>
+              <span>${successRate}%</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <button class="text-primary hover:text-primary-dark mr-2" onclick="navigateTo('session-detail', {id: ${session.session_id}})">
+              <i class="fas fa-eye"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+    
+    tableBody.innerHTML = html;
+  }
+
+  // Load analytics
+  async function loadAnalytics() {
+    const timePeriod = document.getElementById('time-period-filter').value;
+    const groupBy = document.getElementById('group-by-filter').value;
+    
+    const data = await fetchData('analytics', {
+      timePeriod: timePeriod,
+      groupBy: groupBy
+    });
+    
+    if (!data) return;
+    
+    // Update charts
+    renderMonthlySuccessChart(data.monthlyStats);
+    renderDurationChart(data.avgDuration);
+    renderErrorDistributionChart(data.errorDistribution);
+    
+    // Update top users table
+    renderTopUsersTable(data.topUsers);
+    
+    // Update metrics
+    updateAnalyticsMetrics(data);
+  }
+
+  // Render monthly success chart
+  function renderMonthlySuccessChart(data) {
+    const ctx = document.getElementById('monthly-success-chart').getContext('2d');
+    
+    // Destroy existing chart if there is one
+    if (window.monthlySuccessChart) {
+      window.monthlySuccessChart.destroy();
+    }
+    
+    // Prepare data
+    const labels = [];
+    const successRates = [];
+    
+    data.forEach(item => {
+      labels.push(item.month);
+      successRates.push(item.success_rate);
+    });
+    
+    // Create new chart
+    window.monthlySuccessChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Success Rate (%)',
+            data: successRates,
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return `Success Rate: ${context.parsed.y}%`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            min: 50,
+            max: 100,
+            title: {
+              display: true,
+              text: 'Success Rate (%)'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Render duration chart
+  function renderDurationChart(data) {
+    const ctx = document.getElementById('duration-chart').getContext('2d');
+    
+    // Destroy existing chart if there is one
+    if (window.durationChart) {
+      window.durationChart.destroy();
+    }
+    
+    // Prepare data
+    const labels = [];
+    const durations = [];
+    
+    data.forEach(item => {
+      labels.push(item.day);
+      durations.push(item.avg_duration_seconds / 60); // Convert to minutes
+    });
+    
+    // Create new chart
+    window.durationChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Duration (minutes)',
+            data: durations,
+            borderColor: '#3B82F6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return `Duration: ${Math.round(context.parsed.y * 10) / 10} min`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Duration (minutes)'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Render error distribution chart
+  function renderErrorDistributionChart(data) {
+    const ctx = document.getElementById('error-distribution-chart').getContext('2d');
+    
+    // Destroy existing chart if there is one
+    if (window.errorDistributionChart) {
+      window.errorDistributionChart.destroy();
+    }
+    
+    // Prepare data
+    const labels = [];
+    const counts = [];
+    const backgroundColors = [
+      '#EF4444', // error
+      '#F59E0B', // warning
+      '#6B7280', // secondary
+      '#3B82F6', // info
+      '#10B981', // primary
+      '#8B5CF6', // violet
+      '#EC4899', // pink
+      '#6366F1', // indigo
+      '#D97706', // amber
+      '#4B5563'  // gray
+    ];
+    
+    data.forEach((item, index) => {
+      labels.push(item.error_type || 'Unknown');
+      counts.push(item.count);
+    });
+    
+    // Create new chart
+    window.errorDistributionChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: counts,
+            backgroundColor: backgroundColors.slice(0, counts.length),
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 12,
+              font: {
+                size: 10
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = Math.round((value / total) * 100);
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Render top users table
+  function renderTopUsersTable(users) {
+    const tableBody = document.getElementById('top-users-table');
+    
+    if (!users || users.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="4" class="px-4 py-3 text-center text-sm text-gray-500">No user data available</td>
+        </tr>
+      `;
+      return;
+    }
+    
+    let html = '';
+    
+    users.forEach(user => {
+      const successRate = parseFloat(user.success_rate).toFixed(2) + '%';
+      
+      html += `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${user.mysql_user}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${user.backup_count}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <div class="flex items-center">
+              <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                <div class="bg-primary h-2 rounded-full" style="width: ${user.success_rate}%"></div>
+              </div>
+              <span>${successRate}</span>
+            </div>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <i class="fas fa-arrow-up text-success"></i>
+          </td>
+        </tr>
+      `;
+    });
+    
+    tableBody.innerHTML = html;
+  }
+
+  // Update analytics metrics
+  function updateAnalyticsMetrics(data) {
+    // Calculate average success rate
+    let totalSuccessRate = 0;
+    let count = 0;
+    
+    data.monthlyStats.forEach(item => {
+      if (item.success_rate) {
+        totalSuccessRate += parseFloat(item.success_rate);
+        count++;
+      }
+    });
+    
+    const avgSuccessRate = count > 0 ? (totalSuccessRate / count).toFixed(2) + '%' : '0%';
+    document.getElementById('avg-success-rate').textContent = avgSuccessRate;
+    
+    // Calculate average duration
+    let totalDuration = 0;
+    count = 0;
+    
+    data.avgDuration.forEach(item => {
+      if (item.avg_duration_seconds) {
+        totalDuration += parseFloat(item.avg_duration_seconds);
+        count++;
+      }
+    });
+    
+    const avgDuration = count > 0 ? formatDuration(Math.round(totalDuration / count)) : '-';
+    document.getElementById('avg-duration').textContent = avgDuration;
+    
+    // Get most frequent error
+    if (data.errorDistribution && data.errorDistribution.length > 0) {
+      const mostFrequentError = data.errorDistribution[0];
+      document.getElementById('most-frequent-error').textContent = mostFrequentError.error_type || 'Unknown';
+      document.getElementById('error-count').innerHTML = `Occurred <span>${mostFrequentError.count}</span> times`;
+    }
+    
+    // Get best performing user
+    if (data.topUsers && data.topUsers.length > 0) {
+      // Find user with highest success rate
+      const bestUser = data.topUsers.reduce((prev, current) => {
+        return (parseFloat(prev.success_rate) > parseFloat(current.success_rate)) ? prev : current;
+      });
+      
+      document.getElementById('best-user').textContent = bestUser.mysql_user;
+      document.getElementById('best-user-rate').innerHTML = `Success rate: <span class="text-success">${parseFloat(bestUser.success_rate).toFixed(2)}%</span>`;
+    }
+  }
+
+  // Load users
+  async function loadUsers() {
+    // Implementation coming soon
+    const usersGrid = document.getElementById('users-grid');
+    usersGrid.innerHTML = `
+      <div class="col-span-full p-8 text-center">
+        <i class="fas fa-users text-4xl text-primary mb-4"></i>
+        <h3 class="text-lg font-medium">MySQL Users View</h3>
+        <p class="text-gray-500 mt-2">This feature will be implemented soon.</p>
+      </div>
+    `;
+  }
+
+  // Load logs
+  async function loadLogs() {
+    // Implementation coming soon
+    const logsTable = document.getElementById('logs-table');
+    logsTable.innerHTML = `
+      <tr>
+        <td colspan="4" class="px-4 py-8 text-center">
+          <i class="fas fa-clipboard-list text-4xl text-primary mb-4"></i>
+          <h3 class="text-lg font-medium">System Logs View</h3>
+          <p class="text-gray-500 mt-2">This feature will be implemented soon.</p>
+        </td>
+      </tr>
+    `;
+  }
+
+  // Load errors
+  async function loadErrors() {
+    // Implementation coming soon
+    const errorsTable = document.getElementById('errors-table');
+    errorsTable.innerHTML = `
+      <tr>
+        <td colspan="6" class="px-4 py-8 text-center">
+          <i class="fas fa-exclamation-triangle text-4xl text-primary mb-4"></i>
+          <h3 class="text-lg font-medium">Error Analysis View</h3>
+          <p class="text-gray-500 mt-2">This feature will be implemented soon.</p>
+        </td>
+      </tr>
+    `;
+  }
+
+  // Expose functions to window for use in onclick attributes
+  window.navigateTo = navigateTo;
+  window.refreshCurrentView = refreshCurrentView;
+  window.switchSessionTab = switchSessionTab;
+</script>
+</html>
