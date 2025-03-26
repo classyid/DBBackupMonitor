@@ -56,14 +56,6 @@ Setelah deployment, buka URL web app untuk mengakses dashboard monitoring. Navig
 - **Logs**: Catatan aktivitas sistem
 - **Errors**: Analisis kesalahan yang terjadi
 
-## Pengembangan Mendatang
-
-- Implementasi fitur notifikasi email
-- Integrasi dengan layanan cloud storage
-- Ekspor data ke format CSV/Excel
-- Dashboard yang dapat dikustomisasi
-- Sistem pelaporan otomatis berkala
-
 ## Pembuat
 
 Dikembangkan oleh Tim IT Classy Indonesia untuk kebutuhan internal monitoring backup database.
